@@ -70,9 +70,9 @@ typedef struct rect {
 
 rect_t rects[] = {
     {0, 0, 640, 480},
-    {0, 0, 640, 80},
-    {0, 560, 640, 640},
-    {440, 280, 360, 520},
+    {0, 0, 640, 40},
+    {0, 400, 640, 480},
+    {440, 280, 520, 360},
 };
 int rectno = sizeof(rects)/sizeof(rect_t);
 
@@ -86,6 +86,18 @@ static int rect_sortbyy(rect_t *ra, int rsz, int *out)
     bsort(out, outsz);
     return outsz;
 }
+
+static int intersects(rect_t *a, rect_t *b)
+{
+    return ((a->bottom > b->top) && (a->top < b->bottom) &&
+            (a->right > b->left) && (a->left < b->right));
+}
+
+typedef struct vregion {
+    rect_t rect;
+    int layers[NUMLAYERS];
+    int nlayers;
+} vregion_t;
 
 int main (int argc, const char * argv[])
 {
@@ -117,6 +129,32 @@ int main (int argc, const char * argv[])
     printarray(yentries, ylen);
 
     // at this point we have an array of vertical regions
+    int nvregions = ylen - 1;
+    int dispw = 640; /* XXX should obtain this from somewhere */
+    vregion_t vregions[KMAX];
+    for (int i=0; i<nvregions; i++) {
+        vregions[i].rect.top = yentries[i];
+        vregions[i].rect.bottom = yentries[i+1];
+        vregions[i].rect.left = 0;
+        vregions[i].rect.right = dispw;
+        vregions[i].nlayers = 0;
+        for (int j=0; j<rectno; j++) {
+            if (intersects(&vregions[i].rect, &rects[j])) {
+                int l = vregions[i].nlayers++;
+                vregions[i].layers[l] = j;
+            }
+        }
+    }
+
+    // print intersecting layers
+    for (int i = 0; i < nvregions; i++) {
+	printf("layers between %d and %d: ", vregions[i].rect.top, vregions[i].rect.bottom);
+	for (int j = 0; j < vregions[i].nlayers; j++) {
+             printf("%d ", vregions[i].layers[j]);
+        }
+	printf("\n");
+    }
+
     return 0;
 }
 
