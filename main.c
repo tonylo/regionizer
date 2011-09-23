@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <time.h>
 #include <assert.h>
+#include <strings.h>
 
 #define NUMLAYERS 8
 #define KMAX (NUMLAYERS << 1)
@@ -82,10 +83,10 @@ typedef struct rect {
 } rect_t;
 
 rect_t layers[] = {
-    {0, 0, 640, 480},
-    {0, 0, 640, 40},
-    {0, 400, 640, 480},
-    {440, 280, 520, 360},
+    {0, 0, 640, 480, 0},
+    {0, 0, 640, 40, 0},
+    {0, 400, 640, 480, 0},
+    {440, 280, 520, 360, 1}, /* dialog w/ blending */
 };
 int layerno = sizeof(layers)/sizeof(rect_t);
 
@@ -131,19 +132,36 @@ static void gen_blitregions(hregion_t *hregion, rect_t *layers)
         offsets[noffsets++] = layers[layeridx].right;
     }
     bsort(offsets, noffsets);
-    printarray(offsets, noffsets);
     noffsets = bunique(offsets, noffsets);
-    printarray(offsets, noffsets);
 
-    /* TO COMPLETE */
+    bzero(hregion->blitrects, sizeof(hregion->blitrects));
+    for (int r = 0; r + 1 < noffsets; r++) {
+        rect_t subregion;
+        subregion.blend = 0;
+        subregion.top = hregion->rect.top;
+        subregion.bottom = hregion->rect.bottom;
+        subregion.left = offsets[r];
+        subregion.right = offsets[r+1];
+
+        for (int l = 0; l < hregion->nlayers; l++) {
+            int layeridx = hregion->layerids[l];
+            if (intersects(&layers[layeridx], &subregion)) {
+
+                subregion.blend = layers[layeridx].blend;
+                hregion->blitrects[layeridx][r] = subregion;
+                
+                printf("Intersect layer (z): %d x (%d %d %d %d) (blend: %s)\n",
+                       layeridx, subregion.left, subregion.top,
+                       subregion.right, subregion.bottom, subregion.blend ? "yes" : "no"); // XXX
+            }
+        }
+
+    }
 }
 
 int main (int argc, const char * argv[])
 {
-
-    // insert code here...
-    printf("Hello, World!\n");
-    
+#if 0
     // test code
     int array[6][8] = {
     {0, 0, 0, 0, 0, 0, 0, 0},
@@ -166,25 +184,24 @@ int main (int argc, const char * argv[])
         printarray(array[i], sz);
     }
 //    exit(0);  // XXX
+#endif
 
     // the real stuff
     assert(layerno <= KMAX);
     int yentries[KMAX];
     
-    int ylen;
-    timestamp();
-    // Find the vertical regions
-    ylen = rect_sortbyy(layers, layerno, yentries);
-    timestamp();
-    printarray(yentries, ylen);
+    // Find the horizontal regions
+    int ylen = rect_sortbyy(layers, layerno, yentries);
+    //printarray(yentries, ylen);
     
     ylen = bunique(yentries, ylen);
-    printarray(yentries, ylen);
+    //printarray(yentries, ylen);
 
     // at this point we have an array of horizontal regions
     int nhregions = ylen - 1;
     int dispw = 640; /* XXX should obtain this from somewhere */
     hregion_t hregions[KMAX];
+
     for (int i = 0; i < nhregions; i++) {
         hregions[i].rect.top = yentries[i];
         hregions[i].rect.bottom = yentries[i+1];
@@ -199,13 +216,13 @@ int main (int argc, const char * argv[])
         }
     }
 
-    // print intersecting layers
+    /* Calculate blit regions */
     for (int i = 0; i < nhregions; i++) {
         printf("layers between %d and %d: ", hregions[i].rect.top, hregions[i].rect.bottom);
-        for (int j = 0; j < hregions[i].nlayers; j++) {
+        for (int j = 0; j < hregions[i].nlayers; j++)
             printf("%d ", hregions[i].layerids[j]);
-        }
         printf("\n");
+
         gen_blitregions(&hregions[i], layers);
     }
 
