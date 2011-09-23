@@ -69,13 +69,13 @@ typedef struct rect {
     int blend; /* TODO */
 } rect_t;
 
-rect_t rects[] = {
+rect_t layers[] = {
     {0, 0, 640, 480},
     {0, 0, 640, 40},
     {0, 400, 640, 480},
     {440, 280, 520, 360},
 };
-int rectno = sizeof(rects)/sizeof(rect_t);
+int layerno = sizeof(layers)/sizeof(rect_t);
 
 static int rect_sortbyy(rect_t *ra, int rsz, int *out)
 {
@@ -131,13 +131,13 @@ int main (int argc, const char * argv[])
     printarray(array, arraysz);
     
     // the real stuff
-    assert(rectno <= KMAX);
+    assert(layerno <= KMAX);
     int yentries[KMAX];
     
     int ylen;
     timestamp();
     // Find the vertical regions
-    ylen = rect_sortbyy(rects, rectno, yentries);
+    ylen = rect_sortbyy(layers, layerno, yentries);
     timestamp();
     printarray(yentries, ylen);
     
@@ -148,14 +148,14 @@ int main (int argc, const char * argv[])
     int nhregions = ylen - 1;
     int dispw = 640; /* XXX should obtain this from somewhere */
     hregion_t hregions[KMAX];
-    for (int i=0; i<nhregions; i++) {
+    for (int i = 0; i < nhregions; i++) {
         hregions[i].rect.top = yentries[i];
         hregions[i].rect.bottom = yentries[i+1];
         hregions[i].rect.left = 0;
         hregions[i].rect.right = dispw;
         hregions[i].nlayers = 0;
-        for (int j=0; j<rectno; j++) {
-            if (intersects(&hregions[i].rect, &rects[j])) {
+        for (int j = 0; j < layerno; j++) {
+            if (intersects(&hregions[i].rect, &layers[j])) {
                 int l = hregions[i].nlayers++;
                 hregions[i].layers[l] = j;
             }
