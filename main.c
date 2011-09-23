@@ -24,6 +24,9 @@ static int bswap(int *a, int *b)
     return 0;
 }
 
+/*
+ * Simple bubble sort on an array
+ */
 static void bsort(int *a, int len)
 {
     int i, s;
@@ -37,18 +40,27 @@ static void bsort(int *a, int len)
     } while (s);
 }
 
+/*
+ * Leave only unique numbers in a sorted array
+ */
 static int bunique(int *a, int len)
 {
-    int unique = 0;
-    int i = 1;
-    
-    while(i++ < len) {
-        if (a[unique] != a[i]) {
-            unique++;
-            a[unique] = a[i];
+    int unique = 1;
+    int base=0;
+    while (base + 1 < len) {
+        if (a[base] == a[base + 1]) {
+            int skip = 1;
+            while (base + skip < len && a[base] == a[base + skip])
+                skip++;
+            if (base + skip == len)
+                break;
+            for (int i = 0; i < skip - 1; i++)
+                a[base + 1 + i] = a[base + skip];
         }
+        unique++;
+        base++;
     }
-    return unique ? unique : 1;
+    return unique;
 }
 
 static void printarray(int *a, int len)
@@ -96,23 +108,34 @@ static int intersects(rect_t *a, rect_t *b)
 
 typedef struct hregion {
     rect_t rect;
-    int layers[NUMLAYERS];
+    int layerids[NUMLAYERS];
     int nlayers;
     rect_t blitrects[NUMLAYERS][NUMLAYERS]; /* z-order | rectangle */
 } hregion_t;
 
-
-static void gen_blitregions(hregion_t *hregion)
+static void gen_blitregions(hregion_t *hregion, rect_t *layers)
 {
 /*
- * 1. Crop the layers to the bounds of the hregion (top / bottom)
- * 2. Find the right position of each layer, add 0 and sort them from
- *    high to low
- * 3. We should then be able to generate an array of rects
- * 4. Each layer will have a different z-order, for each z-order
+ * 1. Get the offsets (left/right positions) of each layer within the
+ *    hregion. Assume that layers describe the bounds of the hregion.
+ * 2. We should then be able to generate an array of rects
+ * 3. Each layer will have a different z-order, for each z-order
  *    find the intersection. Some intersections will be empty.
  */
-    int crop_layers[hregion->nlayers];
+
+    int offsets[KMAX];
+    int noffsets=0;
+    for (int l = 0; l < hregion->nlayers; l++) {
+        int layeridx = hregion->layerids[l];
+        offsets[noffsets++] = layers[layeridx].left;
+        offsets[noffsets++] = layers[layeridx].right;
+    }
+    bsort(offsets, noffsets);
+    printarray(offsets, noffsets);
+    noffsets = bunique(offsets, noffsets);
+    printarray(offsets, noffsets);
+
+    /* TO COMPLETE */
 }
 
 int main (int argc, const char * argv[])
@@ -122,14 +145,28 @@ int main (int argc, const char * argv[])
     printf("Hello, World!\n");
     
     // test code
-    int array[] = {3, 5, 2, 1, 8, 4, 7, 9};
-    int arraysz = sizeof(array) / sizeof(int);
-    printarray(array, arraysz);
-    timestamp();
-    bsort(array, arraysz);
-    timestamp();
-    printarray(array, arraysz);
-    
+    int array[6][8] = {
+    {0, 0, 0, 0, 0, 0, 0, 0},
+    {1, 0, 0, 0, 0, 0, 0, 0},
+    {0, 0, 0, 0, 0, 0, 0, 1},
+    {0, 0, 0, 0, 8, 4, 7, 9},
+    {0, 1, 0, 1, 0, 1, 0, 1},
+    {3, 5, 2, 1, 8, 4, 7, 9},
+    {3, 3, 2, 1, 8, 4, 7, 9},
+    {3, 5, 5, 1, 8, 4, 7, 9}
+    };
+    for (int i = 0; i < 6; i++) {
+        int arraysz = sizeof(array[i]) / sizeof(int);
+        printarray(array[i], arraysz);
+        bsort(array[i], arraysz);
+        printarray(array[i], arraysz);
+
+        int sz = bunique(array[i], arraysz);
+        printf("sz %d arraysz %d\n", sz, arraysz);
+        printarray(array[i], sz);
+    }
+//    exit(0);  // XXX
+
     // the real stuff
     assert(layerno <= KMAX);
     int yentries[KMAX];
@@ -157,18 +194,19 @@ int main (int argc, const char * argv[])
         for (int j = 0; j < layerno; j++) {
             if (intersects(&hregions[i].rect, &layers[j])) {
                 int l = hregions[i].nlayers++;
-                hregions[i].layers[l] = j;
+                hregions[i].layerids[l] = j;
             }
         }
     }
 
     // print intersecting layers
     for (int i = 0; i < nhregions; i++) {
-	printf("layers between %d and %d: ", hregions[i].rect.top, hregions[i].rect.bottom);
-	for (int j = 0; j < hregions[i].nlayers; j++) {
-             printf("%d ", hregions[i].layers[j]);
+        printf("layers between %d and %d: ", hregions[i].rect.top, hregions[i].rect.bottom);
+        for (int j = 0; j < hregions[i].nlayers; j++) {
+            printf("%d ", hregions[i].layerids[j]);
         }
-	printf("\n");
+        printf("\n");
+        gen_blitregions(&hregions[i], layers);
     }
 
     return 0;
