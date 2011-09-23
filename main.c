@@ -66,6 +66,7 @@ static void timestamp(void)
 
 typedef struct rect {
     int left, top, right, bottom;
+    int blend; /* TODO */
 } rect_t;
 
 rect_t rects[] = {
@@ -93,11 +94,26 @@ static int intersects(rect_t *a, rect_t *b)
             (a->right > b->left) && (a->left < b->right));
 }
 
-typedef struct vregion {
+typedef struct hregion {
     rect_t rect;
     int layers[NUMLAYERS];
     int nlayers;
-} vregion_t;
+    rect_t blitrects[NUMLAYERS][NUMLAYERS]; /* z-order | rectangle */
+} hregion_t;
+
+
+static void gen_blitregions(hregion_t *hregion)
+{
+/*
+ * 1. Crop the layers to the bounds of the hregion (top / bottom)
+ * 2. Find the right position of each layer, add 0 and sort them from
+ *    high to low
+ * 3. We should then be able to generate an array of rects
+ * 4. Each layer will have a different z-order, for each z-order
+ *    find the intersection. Some intersections will be empty.
+ */
+    int crop_layers[hregion->nlayers];
+}
 
 int main (int argc, const char * argv[])
 {
@@ -128,29 +144,29 @@ int main (int argc, const char * argv[])
     ylen = bunique(yentries, ylen);
     printarray(yentries, ylen);
 
-    // at this point we have an array of vertical regions
-    int nvregions = ylen - 1;
+    // at this point we have an array of horizontal regions
+    int nhregions = ylen - 1;
     int dispw = 640; /* XXX should obtain this from somewhere */
-    vregion_t vregions[KMAX];
-    for (int i=0; i<nvregions; i++) {
-        vregions[i].rect.top = yentries[i];
-        vregions[i].rect.bottom = yentries[i+1];
-        vregions[i].rect.left = 0;
-        vregions[i].rect.right = dispw;
-        vregions[i].nlayers = 0;
+    hregion_t hregions[KMAX];
+    for (int i=0; i<nhregions; i++) {
+        hregions[i].rect.top = yentries[i];
+        hregions[i].rect.bottom = yentries[i+1];
+        hregions[i].rect.left = 0;
+        hregions[i].rect.right = dispw;
+        hregions[i].nlayers = 0;
         for (int j=0; j<rectno; j++) {
-            if (intersects(&vregions[i].rect, &rects[j])) {
-                int l = vregions[i].nlayers++;
-                vregions[i].layers[l] = j;
+            if (intersects(&hregions[i].rect, &rects[j])) {
+                int l = hregions[i].nlayers++;
+                hregions[i].layers[l] = j;
             }
         }
     }
 
     // print intersecting layers
-    for (int i = 0; i < nvregions; i++) {
-	printf("layers between %d and %d: ", vregions[i].rect.top, vregions[i].rect.bottom);
-	for (int j = 0; j < vregions[i].nlayers; j++) {
-             printf("%d ", vregions[i].layers[j]);
+    for (int i = 0; i < nhregions; i++) {
+	printf("layers between %d and %d: ", hregions[i].rect.top, hregions[i].rect.bottom);
+	for (int j = 0; j < hregions[i].nlayers; j++) {
+             printf("%d ", hregions[i].layers[j]);
         }
 	printf("\n");
     }
