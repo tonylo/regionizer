@@ -17,6 +17,7 @@ typedef struct hregion {
     rect_t rect;
     int layerids[NUMLAYERS];
     int nlayers;
+    int nsubregions;
     rect_t blitrects[NUMLAYERS][NUMLAYERS]; /* z-order | rectangle */
 } hregion_t;
 

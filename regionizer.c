@@ -4,14 +4,23 @@
  *  Created by Tony Lofthouse on 9/18/11.
  *  Copyright 2011 TI. All rights reserved.
  */
+#define _GNU_SOURCE
 #include <stdio.h>
+#include <stdlib.h>
 #include <time.h>
 #include <assert.h>
 #include <strings.h>
 
 #include "regionizer.h"
 
-#define OUTP printf
+#define OUTPFN printf
+
+#define OUTP OUTPFN
+#ifdef EXTRA_DEBUG
+#define OUTPDBG OUTPFN
+#else
+#define OUTPDBG
+#endif
 
 static void printarray(int *a, int len)
 {
@@ -56,19 +65,50 @@ static int empty_rect(rect_t *r)
     return !(r->left == r->top == r->right == r->bottom == 0);
 }
 
+static int get_top_rect(hregion_t *hregion, int subregion, rect_t **routp)
+{
+    int l = hregion->nlayers - 1;
+    int layeridx;
+    do {
+        layeridx = hregion->layerids[l];
+        *routp = &hregion->blitrects[layeridx][subregion];
+        if (!empty_rect(*routp))
+            break;
+    }
+    while (--l >= 0);
+    return layeridx;
+}
+
+static int get_blend_count(hregion_t *hregion, int subregion)
+{
+    int blend = 0;
+    for (int l = hregion->nlayers - 1; l >= 0; l--) {
+        int layeridx = hregion->layerids[l];
+        rect_t *rp = &hregion->blitrects[layeridx][subregion];
+        if (empty_rect(rp))
+            continue;
+        if (rp->blend)
+            blend++;
+        else
+            break;
+    }
+    return blend;
+}
+
 static void svgout_hregion(hregion_t *hregion)
 {
     char *colors[] = {"red", "orange", "yellow", "green", "blue", "indigo", "violet", NULL};
-    for (int l = 0; l < hregion->nlayers; l++) {
-        int layeridx = hregion->layerids[l];
-
-        for (int b = 0;; b++) {
-            rect_t *rp = &hregion->blitrects[layeridx][b];
-            if (empty_rect(rp))
-                break;
-            svgout_rect(rp, colors[b % 7], NULL);
-        }
-
+    for (int b = 0; b < hregion->nsubregions; b++) {
+        int blendcount = get_blend_count(hregion, b);
+        rect_t *rect;
+        char *text = NULL;
+        int layerz = get_top_rect(hregion, b, &rect);
+        if (blendcount)
+            if (asprintf(&text, "bl%d", blendcount) == -1)
+                text = NULL;
+        svgout_rect(rect, colors[layerz % 7], text);
+        if (text)
+            free(text);
     }
 }
 
@@ -79,7 +119,6 @@ static void svgout_hregions(hregion_t *hregions, int nhregions)
     for (int i = 0; i < nhregions; i++) {
         
         OUTP("<!-- hregion %d -->\n", i);
-        //svgout_rect(&hregions[i].rect, colors[i % 7], NULL);
         svgout_rect(&hregions[i].rect, "white", NULL);
 
         svgout_hregion(&hregions[i]);
@@ -173,7 +212,7 @@ static void gen_blitregions(hregion_t *hregion, rect_t *layers)
     }
     bsort(offsets, noffsets);
     noffsets = bunique(offsets, noffsets);
-
+    hregion->nsubregions = noffsets - 1;
     bzero(hregion->blitrects, sizeof(hregion->blitrects));
     for (int r = 0; r + 1 < noffsets; r++) {
         rect_t subregion;
@@ -190,17 +229,11 @@ static void gen_blitregions(hregion_t *hregion, rect_t *layers)
                 subregion.blend = layers[layeridx].blend;
                 hregion->blitrects[layeridx][r] = subregion;
 
-#if 0
-                OUTP("Intersect layer (z): %d x (%d %d %d %d) (blend: %s)\n",
-                       layeridx, subregion.left, subregion.top,
-                       subregion.right, subregion.bottom, subregion.blend ? "yes" : "no");
-
-                OUTP("hregion->blitrects[%d][%d] (%d %d %d %d)\n", layeridx, r,
+                OUTPDBG("hregion->blitrects[%d][%d] (%d %d %d %d)\n", layeridx, r,
                         hregion->blitrects[layeridx][r].left,
                         hregion->blitrects[layeridx][r].top,
                         hregion->blitrects[layeridx][r].right,
                         hregion->blitrects[layeridx][r].bottom);
-#endif
             }
         }
 
@@ -235,14 +268,11 @@ int regionizer(rect_t *layers, int layerno, int dispw, hregion_t *hregions, int 
 
     /* Calculate blit regions */
     for (int i = 0; i < *nhregions; i++) {
-/*
-        OUTP("layers between %d and %d: ", hregions[i].rect.top, hregions[i].rect.bottom);
+        OUTPDBG("layers between %d and %d: ", hregions[i].rect.top, hregions[i].rect.bottom);
         for (int j = 0; j < hregions[i].nlayers; j++)
-            OUTP("%d ", hregions[i].layerids[j]);
-        OUTP("\n");
-
-        OUTP("hregion %d\n", i);
-*/
+            OUTPDBG("%d ", hregions[i].layerids[j]);
+        OUTPDBG("\n");
+        OUTPDBG("hregion %d\n", i);
         gen_blitregions(&hregions[i], layers);
     }
     return 0;
