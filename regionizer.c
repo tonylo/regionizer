@@ -11,19 +11,81 @@
 
 #include "regionizer.h"
 
+#define OUTP printf
+
 static void printarray(int *a, int len)
 {
     for (int i=0; i<len; i++)
-        printf("%d ", a[i]);
-    printf("\n");
+        OUTP("%d ", a[i]);
+    OUTP("\n");
 }
 
 static void timestamp(void)
 {
     clock_t t = clock();
-    printf("time = %lu\n", t / (CLOCKS_PER_SEC / 1000000));
+    OUTP("time = %lu\n", t / (CLOCKS_PER_SEC / 1000000));
 }
 
+static void svgout_header(void)
+{
+    OUTP("<svg xmlns=\"http://www.w3.org/2000/svg\">\n");
+}
+
+static void svgout_footer(void)
+{
+    OUTP("</svg>\n");
+}
+
+static void svgout_rect(rect_t *r, char *color, char *text)
+{
+    OUTP("<rect x=\"%d\" y=\"%d\" width=\"%d\" height=\"%d\" fill=\"%s\" "
+         "fill-opacity=\"%f\" stroke=\"black\" stroke-width=\"1\" />\n",
+         r->left, r->top, r->right - r->left, r->bottom - r->top, color,
+         r->blend ? 0.5f : 1.0f);
+
+    if (!text)
+        return;
+
+    OUTP("<text x=\"%d\" y=\"%d\" style=\"font-size:40\" fill=\"white\">%s"
+         "</text>\n",
+         r->left, r->top + 40, text);
+}
+
+static int empty_rect(rect_t *r)
+{
+    return !(r->left == r->top == r->right == r->bottom == 0);
+}
+
+static void svgout_hregion(hregion_t *hregion)
+{
+    char *colors[] = {"red", "orange", "yellow", "green", "blue", "indigo", "violet", NULL};
+    for (int l = 0; l < hregion->nlayers; l++) {
+        int layeridx = hregion->layerids[l];
+
+        for (int b = 0;; b++) {
+            rect_t *rp = &hregion->blitrects[layeridx][b];
+            if (empty_rect(rp))
+                break;
+            svgout_rect(rp, colors[b % 7], NULL);
+        }
+
+    }
+}
+
+static void svgout_hregions(hregion_t *hregions, int nhregions)
+{
+
+    svgout_header();
+    for (int i = 0; i < nhregions; i++) {
+        
+        OUTP("<!-- hregion %d -->\n", i);
+        //svgout_rect(&hregions[i].rect, colors[i % 7], NULL);
+        svgout_rect(&hregions[i].rect, "white", NULL);
+
+        svgout_hregion(&hregions[i]);
+    }
+    svgout_footer();
+}
 
 static int bswap(int *a, int *b)
 {
@@ -127,10 +189,18 @@ static void gen_blitregions(hregion_t *hregion, rect_t *layers)
 
                 subregion.blend = layers[layeridx].blend;
                 hregion->blitrects[layeridx][r] = subregion;
-                
-                printf("Intersect layer (z): %d x (%d %d %d %d) (blend: %s)\n",
+
+#if 0
+                OUTP("Intersect layer (z): %d x (%d %d %d %d) (blend: %s)\n",
                        layeridx, subregion.left, subregion.top,
-                       subregion.right, subregion.bottom, subregion.blend ? "yes" : "no"); // XXX
+                       subregion.right, subregion.bottom, subregion.blend ? "yes" : "no");
+
+                OUTP("hregion->blitrects[%d][%d] (%d %d %d %d)\n", layeridx, r,
+                        hregion->blitrects[layeridx][r].left,
+                        hregion->blitrects[layeridx][r].top,
+                        hregion->blitrects[layeridx][r].right,
+                        hregion->blitrects[layeridx][r].bottom);
+#endif
             }
         }
 
@@ -165,11 +235,14 @@ int regionizer(rect_t *layers, int layerno, int dispw, hregion_t *hregions, int 
 
     /* Calculate blit regions */
     for (int i = 0; i < *nhregions; i++) {
-        printf("layers between %d and %d: ", hregions[i].rect.top, hregions[i].rect.bottom);
+/*
+        OUTP("layers between %d and %d: ", hregions[i].rect.top, hregions[i].rect.bottom);
         for (int j = 0; j < hregions[i].nlayers; j++)
-            printf("%d ", hregions[i].layerids[j]);
-        printf("\n");
+            OUTP("%d ", hregions[i].layerids[j]);
+        OUTP("\n");
 
+        OUTP("hregion %d\n", i);
+*/
         gen_blitregions(&hregions[i], layers);
     }
     return 0;
@@ -195,7 +268,7 @@ static int regionizer_unittest(void)
         printarray(array[i], arraysz);
 
         int sz = bunique(array[i], arraysz);
-        printf("sz %d arraysz %d\n", sz, arraysz);
+        OUTP("sz %d arraysz %d\n", sz, arraysz);
         printarray(array[i], sz);
     }
 }
@@ -209,10 +282,13 @@ int main (int argc, const char * argv[])
         {0, 0, 640, 480, 0},
         {0, 0, 640, 40, 0},
         {0, 400, 640, 480, 0},
-        {440, 280, 520, 360, 1}, /* dialog w/ blending */
+        {240, 160, 400, 320, 1}, /* dialog w/ blending */
     };
     int layerno = sizeof(layers)/sizeof(rect_t);
 
-    return regionizer(layers, layerno, dispw, hregions, &nhregions);
+    regionizer(layers, layerno, dispw, hregions, &nhregions);
+
+    svgout_hregions(hregions, nhregions);
+    return 0;
 }
 #endif /* BLD_REGIONIZER_AS_LIB */

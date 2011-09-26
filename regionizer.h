@@ -7,7 +7,7 @@
 
 typedef struct rect {
     int left, top, right, bottom;
-    int blend; /* TODO */
+    int blend;
 } rect_t;
 
 #define NUMLAYERS 8
