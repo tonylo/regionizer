@@ -11,6 +11,20 @@
 
 #include "regionizer.h"
 
+static void printarray(int *a, int len)
+{
+    for (int i=0; i<len; i++)
+        printf("%d ", a[i]);
+    printf("\n");
+}
+
+static void timestamp(void)
+{
+    clock_t t = clock();
+    printf("time = %lu\n", t / (CLOCKS_PER_SEC / 1000000));
+}
+
+
 static int bswap(int *a, int *b)
 {
     if (*a > *b) {
@@ -59,19 +73,6 @@ static int bunique(int *a, int len)
         base++;
     }
     return unique;
-}
-
-static void printarray(int *a, int len)
-{
-    for (int i=0; i<len; i++)
-        printf("%d ", a[i]);
-    printf("\n");
-}
-
-static void timestamp(void)
-{
-    clock_t t = clock();
-    printf("time = %lu\n", t / (CLOCKS_PER_SEC / 1000000));
 }
 
 static int rect_sortbyy(rect_t *ra, int rsz, int *out)
@@ -187,7 +188,7 @@ static int regionizer_unittest(void)
     {3, 3, 2, 1, 8, 4, 7, 9},
     {3, 5, 5, 1, 8, 4, 7, 9}
     };
-    for (int i = 0; i < 6; i++) {
+    for (int i = 0; i < 8; i++) {
         int arraysz = sizeof(array[i]) / sizeof(int);
         printarray(array[i], arraysz);
         bsort(array[i], arraysz);
