@@ -10,15 +10,15 @@ typedef struct rect {
     int blend;
 } rect_t;
 
-#define NUMLAYERS 8
-#define KMAX (NUMLAYERS << 1)
+#define MAXLAYERS 8
+#define SUBREGIONMAX ((MAXLAYERS << 1) - 1)
 
 typedef struct hregion {
     rect_t rect;
-    int layerids[NUMLAYERS];
+    int layerids[MAXLAYERS];
     int nlayers;
     int nsubregions;
-    rect_t blitrects[NUMLAYERS][NUMLAYERS]; /* z-order | rectangle */
+    rect_t blitrects[MAXLAYERS][SUBREGIONMAX]; /* z-order | rectangle */
 } hregion_t;
 
 #endif /* __REGIONIZER__ */

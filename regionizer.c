@@ -203,7 +203,7 @@ static void gen_blitregions(hregion_t *hregion, rect_t *layers)
  *    find the intersection. Some intersections will be empty.
  */
 
-    int offsets[KMAX];
+    int offsets[SUBREGIONMAX];
     int noffsets=0;
     for (int l = 0; l < hregion->nlayers; l++) {
         int layeridx = hregion->layerids[l];
@@ -242,8 +242,8 @@ static void gen_blitregions(hregion_t *hregion, rect_t *layers)
 
 int regionizer(rect_t *layers, int layerno, int dispw, hregion_t *hregions, int *nhregions)
 {
-    assert(layerno <= KMAX);
-    int yentries[KMAX];
+    assert(layerno <= MAXLAYERS);
+    int yentries[SUBREGIONMAX];
     
     /* Find the horizontal regions */
     int ylen = rect_sortbyy(layers, layerno, yentries);
@@ -307,7 +307,7 @@ int main (int argc, const char * argv[])
 {
     int dispw = 640; /* XXX should obtain this from somewhere */
     int nhregions;
-    hregion_t hregions[KMAX];
+    hregion_t hregions[SUBREGIONMAX];
     rect_t layers[] = {
         {0, 0, 640, 480, 0},
         {0, 0, 640, 40, 0},
